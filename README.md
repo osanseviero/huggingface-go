@@ -1,6 +1,6 @@
 # huggingface-go
 
-A minimal, unofficial PoC client library for interacting with the Hugging Face Hub with Go. Currently, the focus will be on downloading/uploading files from model repositories. PRs are welcome for features outside v0.
+A minimal, unofficial, community-contributed PoC client library for interacting with the Hugging Face Hub with Go. Currently, the focus will be on downloading/uploading files from model repositories. PRs are welcome for features outside v0.
 
 ## Roadmap
 
