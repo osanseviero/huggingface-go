@@ -2,10 +2,12 @@ package huggingface
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -28,7 +30,7 @@ func NewHubClient() (*HubClient, error) {
 
 	return &HubClient{
 		BaseURL: defaultBaseURL,
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		HTTPClient: &http.Client{Timeout: 200 * time.Second},
 		Auth: auth,
 	}, nil
 }
@@ -103,4 +105,22 @@ func parseResponse(resp *http.Response, v interface{}) error {
 	}
 
 	return NewAPIError(resp.StatusCode, message)
+}
+
+// ComputeSHA256 computes the SHA256 hash of a file.
+func ComputeSHA256(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", fmt.Errorf("error calculating SHA256 hash: %w", err)
+	}
+
+	hashBytes := hasher.Sum(nil)
+	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
+	return hashString, nil
 }

@@ -14,7 +14,7 @@ import (
 )
 
 // UploadFile uploads a file to the specified repository
-func (c *HubClient) UploadFile(repoName, repoType, filePath string) error {
+func (c *HubClient) UploadFile(repoId, repoType, filePath string) error {
 	file, fileSize, fileName, err := openFile(filePath)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func (c *HubClient) UploadFile(repoName, repoType, filePath string) error {
 
 	// 1. Pre-upload (determine if regular or LFS)
 	sample, _ := getFileSample(filePath)
-	preuploadData, err := c.preUpload(repoName, repoType, fileName, fileSize, sample)
+	preuploadData, err := c.preUpload(repoId, repoType, fileName, fileSize, sample)
 	if err != nil {
 		return err
 	}
@@ -37,12 +37,12 @@ func (c *HubClient) UploadFile(repoName, repoType, filePath string) error {
 	// 3. Upload or Commit the file based on the mode
 	switch preuploadData.Files[0].UploadMode {
 	case "lfs":
-		if err := c.uploadLFS(repoName, repoType, fileName, file); err != nil {
+		if err := c.uploadLFS(repoId, repoType, fileName, file); err != nil {
 			return err
 		}
-		return c.commitFile(repoName, repoType, preuploadData.CommitOid, "upload file", fileName, file, true)
+		return c.commitFile(repoId, repoType, preuploadData.CommitOid, "upload file", fileName, file, true)
 	case "regular":
-		return c.commitFile(repoName, repoType, preuploadData.CommitOid, "upload file", fileName, file, false)
+		return c.commitFile(repoId, repoType, preuploadData.CommitOid, "upload file", fileName, file, false)
 	default:
 		return fmt.Errorf("unknown upload mode: %s", preuploadData.Files[0].UploadMode)
 	}
@@ -75,7 +75,7 @@ type PreuploadResponse struct {
 }
 
 // preUpload sends the pre-upload request and parses the response
-func (c *HubClient) preUpload(repoName, repoType, fileName string, fileSize int64, sample string) (*PreuploadResponse, error) {
+func (c *HubClient) preUpload(repoId, repoType, fileName string, fileSize int64, sample string) (*PreuploadResponse, error) {
 	preuploadBody := map[string]interface{}{
 		"files": []map[string]interface{}{
 			{
@@ -85,7 +85,7 @@ func (c *HubClient) preUpload(repoName, repoType, fileName string, fileSize int6
 			},
 		},
 	}
-	preuploadURL := fmt.Sprintf("/api/%ss/%s/preupload/main", repoType, repoName)
+	preuploadURL := fmt.Sprintf("/api/%ss/%s/preupload/main", repoType, repoId)
 
 	preuploadResp, err := c.doRequest("POST", preuploadURL, preuploadBody, nil)
 	if err != nil {
@@ -107,7 +107,7 @@ func (c *HubClient) preUpload(repoName, repoType, fileName string, fileSize int6
 
 
 // ploadLFS handles the upload of a file to LFS
-func (c *HubClient) uploadLFS(repoName, repoType, fileName string, fileData io.Reader) error {
+func (c *HubClient) uploadLFS(repoId, repoType, fileName string, fileData io.Reader) error {
     // 1. Calculate SHA256 Hash
     fileContent, err := ioutil.ReadAll(fileData)
     if err != nil {
@@ -129,7 +129,7 @@ func (c *HubClient) uploadLFS(repoName, repoType, fileName string, fileData io.R
             },
         },
     }
-	lfsBatchURL := fmt.Sprintf("/%s.git/info/lfs/objects/batch",repoName)
+	lfsBatchURL := fmt.Sprintf("/%s.git/info/lfs/objects/batch", repoId)
 
     lfsBatchResp, err := c.doRequest("POST", lfsBatchURL, lfsBatchBody, lfsHeaders())
     if err != nil {
@@ -262,7 +262,7 @@ func (c *HubClient) verifyLFSUpload(verifyURL string, verifyBody map[string]inte
 
 
 // commitFile commits a single file directly to the repository.
-func (c *HubClient) commitFile(repoName, repoType, commitOid, commitMessage, fileName string, fileData io.Reader, isLFS bool) error {
+func (c *HubClient) commitFile(repoId, repoType, commitOid, commitMessage, fileName string, fileData io.Reader, isLFS bool) error {
 	var operationsJSON []byte
     var fileSize int64
 
@@ -317,7 +317,7 @@ func (c *HubClient) commitFile(repoName, repoType, commitOid, commitMessage, fil
 
 	// Create NDJSON Request Body
 	requestBody := []byte(string(headerJSON) + "\n\n" + string(operationsJSON))
-	commitURL := fmt.Sprintf("%s/api/%ss/%s/commit/main", c.BaseURL, repoType, repoName)
+	commitURL := fmt.Sprintf("%s/api/%ss/%s/commit/main", c.BaseURL, repoType, repoId)
 
 	commitReq, err := http.NewRequest("POST", commitURL, bytes.NewReader(requestBody))
 	if err != nil {
